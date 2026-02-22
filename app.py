@@ -14,6 +14,16 @@ import streamlit as st
 # Projekt-Root
 PROJECT_ROOT = Path(__file__).resolve().parent
 load_dotenv(PROJECT_ROOT / ".env")
+
+# Streamlit Cloud: Secrets in os.environ übertragen,
+# damit os.getenv() in den Tools funktioniert
+try:
+    for _key, _val in st.secrets.items():
+        if isinstance(_val, str):
+            os.environ.setdefault(_key, _val)
+except Exception:
+    pass
+
 sys.path.insert(0, str(PROJECT_ROOT / "tools"))
 
 from research_guest import run_research, disambiguate_guest, slugify
