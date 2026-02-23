@@ -506,12 +506,13 @@ if APP_PASSWORD:
         </div>
         """, unsafe_allow_html=True)
 
-        col_pw, col_login, col_space = st.columns([2, 1, 3])
-        with col_pw:
-            password = st.text_input("Passwort", type="password", key="login_pw", label_visibility="visible")
-        with col_login:
-            st.markdown('<div style="height: 1.65rem;"></div>', unsafe_allow_html=True)
-            login = st.button("Anmelden", type="primary", disabled=not password, use_container_width=True)
+        with st.form("login_form"):
+            col_pw, col_login, col_space = st.columns([2, 1, 3])
+            with col_pw:
+                password = st.text_input("Passwort eingeben", type="password", key="login_pw")
+            with col_login:
+                st.markdown('<div style="height: 1.65rem;"></div>', unsafe_allow_html=True)
+                login = st.form_submit_button("Anmelden", use_container_width=True)
 
         if login:
             if password == APP_PASSWORD:
