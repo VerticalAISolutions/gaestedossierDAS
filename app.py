@@ -534,43 +534,72 @@ st.markdown("""
 # --- Session State ---
 if "step" not in st.session_state:
     st.session_state.step = "input"
+if "session_dossiers" not in st.session_state:
+    st.session_state.session_dossiers = {}  # {guest: {"content": str, "filename": str}}
+if "session_research" not in st.session_state:
+    st.session_state.session_research = {}  # {guest: {"content": str, "filename": str}}
 
 # --- Sidebar ---
 with st.sidebar:
     st.markdown("## Bisherige Dossiers")
     dossier_dir = PROJECT_ROOT / "dossiers"
+    shown_dossiers = False
+
+    # Datei-basiert (lokal/persistent)
     if dossier_dir.exists():
-        dossiers = sorted(dossier_dir.glob("*.md"), key=lambda f: f.stat().st_mtime, reverse=True)
-        if dossiers:
-            for d in dossiers:
-                if st.button(f"📄 {d.stem}", key=f"sidebar_{d.name}", use_container_width=True):
-                    st.session_state["view_dossier"] = d
-        else:
-            st.caption("Noch keine Dossiers erstellt.")
-    else:
+        file_dossiers = sorted(dossier_dir.glob("*.md"), key=lambda f: f.stat().st_mtime, reverse=True)
+        for d in file_dossiers:
+            if st.button(f"📄 {d.stem}", key=f"sidebar_{d.name}", use_container_width=True):
+                st.session_state["view_dossier"] = d
+            shown_dossiers = True
+
+    # Session-basiert (Cloud-kompatibel)
+    for g, data in st.session_state.session_dossiers.items():
+        key = f"sess_d_{data['filename']}"
+        label = data["filename"].replace(".md", "")
+        if st.button(f"📄 {label}", key=key, use_container_width=True):
+            st.session_state["view_dossier_content"] = data["content"]
+        shown_dossiers = True
+
+    if not shown_dossiers:
         st.caption("Noch keine Dossiers erstellt.")
 
     st.divider()
     st.markdown("## Research-Daten")
     tmp_dir = PROJECT_ROOT / ".tmp"
+    shown_research = False
+
+    # Datei-basiert (lokal/persistent)
     if tmp_dir.exists():
         research_files = sorted(
             [f for f in tmp_dir.glob("*_research.md") if "_raw" not in f.name],
             key=lambda f: f.stat().st_mtime, reverse=True,
         )
-        if research_files:
-            for r in research_files:
-                if st.button(f"🔍 {r.stem}", key=f"sidebar_r_{r.name}", use_container_width=True):
-                    st.session_state["view_research"] = r
-        else:
-            st.caption("Noch keine Research-Daten.")
-    else:
+        for r in research_files:
+            if st.button(f"🔍 {r.stem}", key=f"sidebar_r_{r.name}", use_container_width=True):
+                st.session_state["view_research"] = r
+            shown_research = True
+
+    # Session-basiert (Cloud-kompatibel)
+    for g, data in st.session_state.session_research.items():
+        key = f"sess_r_{data['filename']}"
+        label = data["filename"].replace("_research.md", "").replace("_", " ")
+        if st.button(f"🔍 {label}", key=key, use_container_width=True):
+            st.session_state["view_research_content"] = data["content"]
+        shown_research = True
+
+    if not shown_research:
         st.caption("Noch keine Research-Daten.")
 
 # --- Sidebar views ---
 if "view_dossier" in st.session_state:
     dossier_path = st.session_state.pop("view_dossier")
     st.markdown(f'<div class="dossier-result">{dossier_path.read_text(encoding="utf-8")}</div>', unsafe_allow_html=True)
+    st.stop()
+
+if "view_dossier_content" in st.session_state:
+    content = st.session_state.pop("view_dossier_content")
+    st.markdown(f'<div class="dossier-result">{content}</div>', unsafe_allow_html=True)
     st.stop()
 
 if "view_research" in st.session_state:
@@ -584,6 +613,11 @@ if "view_research" in st.session_state:
             st.markdown(f'<div class="research-data-view">{raw_path.read_text(encoding="utf-8")}</div>', unsafe_allow_html=True)
     else:
         st.markdown(f'<div class="research-data-view">{research_path.read_text(encoding="utf-8")}</div>', unsafe_allow_html=True)
+    st.stop()
+
+if "view_research_content" in st.session_state:
+    content = st.session_state.pop("view_research_content")
+    st.markdown(f'<div class="research-data-view">{content}</div>', unsafe_allow_html=True)
     st.stop()
 
 
@@ -711,6 +745,12 @@ elif st.session_state.step == "running":
     try:
         research_path = run_research(guest, context_hint=hint)
 
+        # Research in session_state sichern (Cloud-kompatibel)
+        st.session_state.session_research[guest] = {
+            "content": research_path.read_text(encoding="utf-8"),
+            "filename": research_path.name,
+        }
+
         # Step 1 als erledigt markieren (ersetzt den aktiven Balken komplett)
         step1_status.markdown("""
         <div class="pipeline-step">
@@ -784,9 +824,15 @@ elif st.session_state.step == "running":
     # --- Ergebnis ---
     dossier_content = dossier_path.read_text(encoding="utf-8")
 
+    # Dossier in session_state sichern (Cloud-kompatibel)
+    st.session_state.session_dossiers[guest] = {
+        "content": dossier_content,
+        "filename": dossier_path.name,
+    }
+
     st.markdown(f'<div class="dossier-result">{dossier_content}</div>', unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 1, 2])
+    col1, col2, col3 = st.columns([1, 1, 1])
     with col1:
         st.download_button(
             label="Dossier herunterladen",
@@ -796,6 +842,16 @@ elif st.session_state.step == "running":
             use_container_width=True,
         )
     with col2:
+        research_data = st.session_state.session_research.get(guest, {})
+        if research_data:
+            st.download_button(
+                label="Research herunterladen",
+                data=research_data["content"],
+                file_name=research_data["filename"],
+                mime="text/markdown",
+                use_container_width=True,
+            )
+    with col3:
         if st.button("Neues Dossier", use_container_width=True):
             st.session_state.step = "input"
             st.rerun()
