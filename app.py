@@ -601,9 +601,11 @@ if st.session_state.step == "input":
         )
     with col_btn:
         st.markdown('<div style="height: 1.65rem;"></div>', unsafe_allow_html=True)
-        check_button = st.button("Person prüfen", type="primary", disabled=not guest_name, use_container_width=True)
+        check_button = st.button("Person prüfen", type="primary", use_container_width=True)
 
-    if check_button and guest_name:
+    if check_button and not guest_name:
+        st.warning("Bitte einen Gastnamen eingeben.")
+    elif check_button and guest_name:
         with st.spinner("Identität wird geprüft..."):
             try:
                 candidates, is_ambiguous = disambiguate_guest(guest_name)
