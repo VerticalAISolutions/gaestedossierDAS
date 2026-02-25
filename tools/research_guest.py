@@ -423,19 +423,11 @@ def run_research(guest_name: str, context_hint: str = "") -> Path:
     raw_path.write_text(output, encoding="utf-8")
     print(f"  💾 Rohdaten gespeichert: {raw_path}")
 
-    # Schritt D: Verifikation — Verwechslungen rausfiltern
-    verified_output = output
-    if context_hint:
-        print("  → Verifikation: Prüfe auf Verwechslungen...")
-        try:
-            verified_output = verify_research(guest_name, context_hint, output)
-            print("  ✓ Verifikation abgeschlossen")
-        except Exception as e:
-            print(f"  ⚠ Verifikation fehlgeschlagen (Research wird ungeprüft gespeichert): {e}")
-
-    # Speichern: Verifizierte Version
+    # Schritt D entfernt: Kein Claude-Verifikationsschritt mehr.
+    # Die Disambiguierung am Anfang stellt sicher, dass wir die richtige Person recherchieren.
+    # Ein Claude-Filter ohne Web-Zugang würde Live-Daten aus 2025/2026 fälschlicherweise blockieren.
     verified_path = tmp_dir / f"{slug}_research.md"
-    verified_path.write_text(verified_output, encoding="utf-8")
+    verified_path.write_text(output, encoding="utf-8")
 
     print(f"✅ Research gespeichert: {verified_path}")
     return verified_path
