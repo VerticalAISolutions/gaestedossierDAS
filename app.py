@@ -10,6 +10,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 # Projekt-Root
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -513,6 +514,14 @@ if APP_PASSWORD:
             with col_login:
                 st.markdown('<div style="height: 1.65rem;"></div>', unsafe_allow_html=True)
                 login = st.form_submit_button("Anmelden", use_container_width=True)
+
+        # Passwortfeld als Login (nicht Registrierung) markieren → verhindert Chrome-Passwortvorschlag
+        components.html("""
+        <script>
+            const inputs = window.parent.document.querySelectorAll('input[type="password"]');
+            inputs.forEach(el => el.setAttribute('autocomplete', 'current-password'));
+        </script>
+        """, height=0)
 
         if login:
             if password == APP_PASSWORD:
