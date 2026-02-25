@@ -22,6 +22,8 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 RESEARCH_PROMPT_TEMPLATE = """Du bist Chef-Rechercheur für eine führende TV-Talkshow. Deine Aufgabe ist es, ein detailliertes, kritisches und gesprächsorientiertes Dossier über den folgenden Gast zu erstellen:
 
+AKTUELLES DATUM: Heute ist der {today}. Informationen aus 2025 und 2026 sind GEGENWART, nicht Zukunft.
+
 GAST: {guest_name}
 {context_hint}
 
@@ -167,7 +169,8 @@ def research_perplexity(guest_name: str, context_hint: str = "") -> str:
 KONTEXT: Es handelt sich um {context_hint}. Recherchiere AUSSCHLIESSLICH über diese Person.
 WARNUNG: Es gibt andere Personen mit ähnlichem Namen. Prüfe bei JEDER Information, ob sie sich wirklich auf die richtige Person bezieht. Im Zweifel: weglassen."""
 
-    prompt = RESEARCH_PROMPT_TEMPLATE.format(guest_name=guest_name, context_hint=hint_text)
+    today = datetime.now().strftime("%d.%m.%Y")
+    prompt = RESEARCH_PROMPT_TEMPLATE.format(guest_name=guest_name, context_hint=hint_text, today=today)
 
     # Suchanfrage mit Kontext anreichern, damit Perplexity die richtige Person findet
     search_name = f"{guest_name} {context_hint}" if context_hint else guest_name
@@ -181,7 +184,7 @@ WARNUNG: Es gibt andere Personen mit ähnlichem Namen. Prüfe bei JEDER Informat
         json={
             "model": "sonar-pro",
             "messages": [
-                {"role": "system", "content": f"Du bist ein erfahrener Rechercheur für deutsche TV-Talkshows. Recherchiere gründlich und liefere quellenbasierte Ergebnisse auf Deutsch. WICHTIG: Du recherchierst über {search_name}. Verwechsle diese Person NICHT mit Namensvetter."},
+                {"role": "system", "content": f"Du bist ein erfahrener Rechercheur für deutsche TV-Talkshows. Heute ist der {today}. Informationen aus 2025 und 2026 sind Gegenwart. Recherchiere gründlich und liefere quellenbasierte Ergebnisse auf Deutsch. WICHTIG: Du recherchierst über {search_name}. Verwechsle diese Person NICHT mit Namensvetter."},
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.1,
@@ -326,6 +329,7 @@ def verify_research(guest_name: str, context_hint: str, research_text: str) -> s
     if not api_key:
         return research_text  # Ohne API-Key: ungeprüft zurückgeben
 
+    today = datetime.now().strftime("%d.%m.%Y")
     client = anthropic.Anthropic(api_key=api_key)
     message = client.messages.create(
         model="claude-sonnet-4-5-20250929",
@@ -333,7 +337,7 @@ def verify_research(guest_name: str, context_hint: str, research_text: str) -> s
         timeout=120.0,
         messages=[{
             "role": "user",
-            "content": f"""Du bist ein Faktenprüfer. Deine Aufgabe ist es, ein Research-Dossier auf VERWECHSLUNGEN zu prüfen.
+            "content": f"""Du bist ein Faktenprüfer für Personenverwechslungen. Heute ist der {today}. Informationen aus 2025 und 2026 sind GEGENWART — behandle sie als aktuell und korrekt.
 
 DIE ZIELPERSON:
 - Name: {guest_name}
@@ -342,13 +346,15 @@ DIE ZIELPERSON:
 DAS ZU PRÜFENDE DOSSIER:
 {research_text}
 
-AUFGABE:
-1. Prüfe JEDEN Fakt, JEDES Zitat und JEDE Information: Gehört sie wirklich zu "{guest_name}" ({context_hint})?
-2. ENTFERNE alle Informationen, die zu einer ANDEREN Person mit ähnlichem Namen gehören könnten.
-3. Markiere Stellen, die du nicht sicher zuordnen kannst, mit [⚠️ NICHT VERIFIZIERT].
-4. Gib das bereinigte Dossier im gleichen Format zurück.
+DEINE EINZIGE AUFGABE: Filtere Verwechslungen mit anderen Personen, die denselben oder einen ähnlichen Namen tragen.
 
-WICHTIG: Lieber eine Information weglassen als eine falsche Person zitieren. Wenn du unsicher bist, markiere es oder lass es weg."""
+REGELN:
+1. BEHALTE alle Informationen, die plausibel zur Zielperson passen — auch wenn du sie nicht aus deiner Wissensbasis kennst. Aktuelle Informationen aus Live-Quellen (2025/2026) sind als korrekt zu behandeln.
+2. ENTFERNE nur Informationen, die EINDEUTIG zu einer anderen Person gehören (klar anderer Beruf, anderes Land, völlig andere Biografie).
+3. Setze [⚠️ MÖGLICHE VERWECHSLUNG] NUR wenn du eine konkrete andere Person mit gleichem Namen identifizierst, deren Daten hier fälschlicherweise auftauchen.
+4. Gib das Dossier im gleichen Format zurück.
+
+WICHTIG: Markiere NICHT, weil du eine Information nicht bestätigen kannst. Markiere NUR bei konkretem Verdacht auf eine andere Person."""
         }],
     )
 

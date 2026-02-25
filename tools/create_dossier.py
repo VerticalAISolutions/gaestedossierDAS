@@ -162,11 +162,19 @@ def create_dossier(guest_name: str, research_path: Path, on_chunk=None) -> Path:
     print("  → Claude API aufrufen (Streaming)...")
     client = anthropic.Anthropic(api_key=api_key)
 
+    today = datetime.now().strftime("%d.%m.%Y")
+    system_with_date = (
+        DOSSIER_SYSTEM_PROMPT
+        + f"\n\n# AKTUELLES DATUM\nHeute ist der {today}. "
+        "Informationen aus 2025 und 2026 sind GEGENWART — behandle sie als aktuell. "
+        "Schreibe niemals, dass etwas 'in der Zukunft' liegt oder 'noch nicht bekannt' ist, wenn es sich um Ereignisse aus 2025/2026 handelt."
+    )
+
     dossier_content = ""
     with client.messages.stream(
         model="claude-sonnet-4-5-20250929",
         max_tokens=8000,
-        system=DOSSIER_SYSTEM_PROMPT,
+        system=system_with_date,
         messages=[
             {
                 "role": "user",
